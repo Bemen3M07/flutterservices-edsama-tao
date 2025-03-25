@@ -156,7 +156,7 @@ class SpaceShooterGame extends FlameGame with PanDetector, HasCollisionDetection
   }
 }
 
-class Player extends SpriteAnimationComponent with HasGameReference<SpaceShooterGame>, CollisionCallbacks {
+class Player extends SpriteComponent with HasGameReference<SpaceShooterGame>, CollisionCallbacks {
   Player()
       : super(
           size: Vector2(100, 150),
@@ -169,14 +169,7 @@ class Player extends SpriteAnimationComponent with HasGameReference<SpaceShooter
   Future<void> onLoad() async {
     await super.onLoad();
 
-    animation = await game.loadSpriteAnimation(
-      'player.png',
-      SpriteAnimationData.sequenced(
-        amount: 4,
-        stepTime: 0.2,
-        textureSize: Vector2(32, 48),
-      ),
-    );
+    sprite = await game.loadSprite('player.png');
 
     position = game.size / 2;
 
@@ -217,21 +210,15 @@ class Player extends SpriteAnimationComponent with HasGameReference<SpaceShooter
   }
 }
 
-class Bullet extends SpriteAnimationComponent with HasGameReference<SpaceShooterGame> {
+class Bullet extends SpriteComponent with HasGameReference<SpaceShooterGame> {
   Bullet({super.position}) : super(size: Vector2(25, 50), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
-    animation = await game.loadSpriteAnimation(
-      'bullet.png',
-      SpriteAnimationData.sequenced(
-        amount: 4,
-        stepTime: 0.2,
-        textureSize: Vector2(8, 16),
-      ),
-    );
+    sprite = await game.loadSprite('bullet.png');
+
 
     add(RectangleHitbox(collisionType: CollisionType.passive));
   }
