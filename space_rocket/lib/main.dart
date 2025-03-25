@@ -35,26 +35,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void showGameOverScreen() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.black54,
-          title: Text('GAME OVER', style: TextStyle(fontSize: 48, color: Colors.white)),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  game.reset();
-                });
-              },
-              child: Text('Reintentar'),
-            ),
-          ],
-        );
-      },
-    );
+    game.overlays.add('gameOver');
   }
 
   @override
@@ -63,6 +44,22 @@ class _GameScreenState extends State<GameScreen> {
       body: GameWidget(
         game: game,
         loadingBuilder: (context) => Center(child: CircularProgressIndicator()),
+        overlayBuilderMap: {
+          'gameOver': (BuildContext context, SpaceShooterGame game) {
+            return Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  game.overlays.remove('gameOver');
+                  game.reset();
+                },
+                child: Text(
+                  'Reiniciar Juego',
+                  style: TextStyle(fontSize: 24),
+                ),
+              ),
+            );
+          },
+        },
       ),
     );
   }
@@ -187,14 +184,12 @@ class Player extends SpriteComponent with HasGameReference<SpaceShooterGame>, Co
 
   @override
   void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
-    super.onCollisionStart(intersectionPoints, other);
     if (other is Enemy) {
       game.gameOver();
       removeFromParent();
     }
   }
 }
-
 
 class Bullet extends SpriteComponent with HasGameReference<SpaceShooterGame> {
   Bullet({super.position}) : super(size: Vector2(25, 50), anchor: Anchor.center);
@@ -230,7 +225,6 @@ class Enemy extends SpriteAnimationComponent with HasGameReference<SpaceShooterG
 
   @override
   void update(double dt) {
-    super.update(dt);
     position.y += dt * 250;
     if (position.y > game.size.y) {
       removeFromParent();
@@ -239,7 +233,6 @@ class Enemy extends SpriteAnimationComponent with HasGameReference<SpaceShooterG
 
   @override
   void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
-    super.onCollisionStart(intersectionPoints, other);
     if (other is Bullet) {
       removeFromParent();
       other.removeFromParent();
