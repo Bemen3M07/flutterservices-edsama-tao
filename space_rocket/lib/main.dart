@@ -8,30 +8,96 @@ import 'package:flame/parallax.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(GameWidget(game: SpaceShooterGame()));
+  runApp(MyApp());
 }
 
-class SpaceShooterGame extends FlameGame
-    with PanDetector, HasCollisionDetection {
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: GameScreen(),
+    );
+  }
+}
+
+class GameScreen extends StatefulWidget {
+  @override
+  _GameScreenState createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  late SpaceShooterGame game;
+
+  @override
+  void initState() {
+    super.initState();
+    game = SpaceShooterGame(onGameOver: showGameOverScreen);
+  }
+
+  // Función que muestra la pantalla de Game Over
+  void showGameOverScreen() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black54,
+          title: Text('GAME OVER', style: TextStyle(fontSize: 48, color: Colors.white)),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Cierra el dialogo
+                setState(() {
+                  game.reset(); // Reinicia el juego
+                });
+              },
+              child: Text('Reintentar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: GameWidget(game: game),
+    );
+  }
+}
+
+class SpaceShooterGame extends FlameGame with PanDetector, HasCollisionDetection {
   late Player player;
+  final Function onGameOver;
+
+  SpaceShooterGame({required this.onGameOver});
+
+  late ParallaxComponent parallax;
+
+  @override
+  Color backgroundColor() => Colors.blue;
 
   @override
   Future<void> onLoad() async {
-    final parallax = await loadParallaxComponent(
+    // Cargar el fondo parallax con la forma correcta
+    parallax = await loadParallaxComponent(
       [
         ParallaxImageData('stars_0.png'),
         ParallaxImageData('stars_1.png'),
         ParallaxImageData('stars_2.png'),
       ],
-      baseVelocity: Vector2(0, -5),
-      repeat: ImageRepeat.repeat,
-      velocityMultiplierDelta: Vector2(0, 5),
+      baseVelocity: Vector2(0, -5), // Velocidad base
+      repeat: ImageRepeat.repeat, // Repite la imagen
+      velocityMultiplierDelta: Vector2(0, 5), // Aceleración de la velocidad
+      fill: LayerFill.none,
     );
     add(parallax);
 
+    // Crear y agregar al jugador
     player = Player();
     add(player);
 
+    // Agregar enemigos al juego
     add(
       SpawnComponent(
         factory: (index) {
@@ -57,10 +123,40 @@ class SpaceShooterGame extends FlameGame
   void onPanEnd(DragEndInfo info) {
     player.stopShooting();
   }
+
+  // Llamada a onGameOver cuando el jugador muere
+  void gameOver() {
+    onGameOver();
+  }
+
+  // Resetear el juego
+  Future<void> reset() async {
+    // Reiniciar el fondo parallax
+    remove(parallax);
+    parallax = await loadParallaxComponent(
+      [
+        ParallaxImageData('stars_0.png'),
+        ParallaxImageData('stars_1.png'),
+        ParallaxImageData('stars_2.png'),
+      ],
+      baseVelocity: Vector2(0, -5), // Velocidad base
+      repeat: ImageRepeat.repeat, // Repite la imagen
+      velocityMultiplierDelta: Vector2(0, 5),
+      fill: LayerFill.none,
+    );
+    add(parallax);
+
+    // Reiniciar la posición del jugador
+    player.position = size / 2;
+    add(player);
+
+    // Reiniciar enemigos y balas
+    children.whereType<Enemy>().forEach((enemy) => enemy.removeFromParent());
+    children.whereType<Bullet>().forEach((bullet) => bullet.removeFromParent());
+  }
 }
 
-class Player extends SpriteAnimationComponent
-    with HasGameReference<SpaceShooterGame> {
+class Player extends SpriteAnimationComponent with HasGameReference<SpaceShooterGame>, CollisionCallbacks {
   Player()
       : super(
           size: Vector2(100, 150),
@@ -89,17 +185,14 @@ class Player extends SpriteAnimationComponent
       selfPositioning: true,
       factory: (index) {
         return Bullet(
-          position: position +
-              Vector2(
-                0,
-                -height / 2,
-              ),
+          position: position + Vector2(0, -height / 2),
         );
       },
       autoStart: false,
     );
 
     game.add(_bulletSpawner);
+    add(RectangleHitbox());
   }
 
   void move(Vector2 delta) {
@@ -113,16 +206,19 @@ class Player extends SpriteAnimationComponent
   void stopShooting() {
     _bulletSpawner.timer.stop();
   }
+
+  @override
+  void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
+    super.onCollisionStart(intersectionPoints, other);
+    if (other is Enemy) {
+      game.gameOver();
+      removeFromParent();
+    }
+  }
 }
 
-class Bullet extends SpriteAnimationComponent
-    with HasGameReference<SpaceShooterGame> {
-  Bullet({
-    super.position,
-  }) : super(
-          size: Vector2(25, 50),
-          anchor: Anchor.center,
-        );
+class Bullet extends SpriteAnimationComponent with HasGameReference<SpaceShooterGame> {
+  Bullet({super.position}) : super(size: Vector2(25, 50), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
@@ -137,11 +233,7 @@ class Bullet extends SpriteAnimationComponent
       ),
     );
 
-    add(
-      RectangleHitbox(
-        collisionType: CollisionType.passive,
-      ),
-    );
+    add(RectangleHitbox(collisionType: CollisionType.passive));
   }
 
   @override
@@ -156,14 +248,9 @@ class Bullet extends SpriteAnimationComponent
   }
 }
 
-class Enemy extends SpriteAnimationComponent
-    with HasGameReference<SpaceShooterGame>, CollisionCallbacks {
-  Enemy({
-    super.position,
-  }) : super(
-          size: Vector2.all(enemySize),
-          anchor: Anchor.center,
-        );
+class Enemy extends SpriteAnimationComponent with HasGameReference<SpaceShooterGame>, CollisionCallbacks {
+  Enemy({super.position})
+      : super(size: Vector2.all(enemySize), anchor: Anchor.center);
 
   static const enemySize = 50.0;
 
@@ -195,10 +282,7 @@ class Enemy extends SpriteAnimationComponent
   }
 
   @override
-  void onCollisionStart(
-    Set<Vector2> intersectionPoints,
-    PositionComponent other,
-  ) {
+  void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollisionStart(intersectionPoints, other);
 
     if (other is Bullet) {
@@ -209,15 +293,9 @@ class Enemy extends SpriteAnimationComponent
   }
 }
 
-class Explosion extends SpriteAnimationComponent
-    with HasGameReference<SpaceShooterGame> {
-  Explosion({
-    super.position,
-  }) : super(
-          size: Vector2.all(150),
-          anchor: Anchor.center,
-          removeOnFinish: true,
-        );
+class Explosion extends SpriteAnimationComponent with HasGameReference<SpaceShooterGame> {
+  Explosion({super.position})
+      : super(size: Vector2.all(150), anchor: Anchor.center, removeOnFinish: true);
 
   @override
   Future<void> onLoad() async {
@@ -233,4 +311,4 @@ class Explosion extends SpriteAnimationComponent
       ),
     );
   }
-}//unai hola
+}
