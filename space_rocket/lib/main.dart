@@ -187,6 +187,7 @@ class Player extends SpriteComponent with HasGameReference<SpaceShooterGame>, Co
 
   @override
   void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
+    super.onCollisionStart(intersectionPoints, other);
     if (other is Enemy) {
       game.gameOver();
       removeFromParent();
@@ -229,6 +230,7 @@ class Enemy extends SpriteAnimationComponent with HasGameReference<SpaceShooterG
 
   @override
   void update(double dt) {
+    super.update(dt);
     position.y += dt * 250;
     if (position.y > game.size.y) {
       removeFromParent();
@@ -237,6 +239,7 @@ class Enemy extends SpriteAnimationComponent with HasGameReference<SpaceShooterG
 
   @override
   void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
+    super.onCollisionStart(intersectionPoints, other);
     if (other is Bullet) {
       removeFromParent();
       other.removeFromParent();
@@ -255,4 +258,4 @@ class Explosion extends SpriteAnimationComponent with HasGameReference<SpaceShoo
       SpriteAnimationData.sequenced(amount: 6, stepTime: 0.1, textureSize: Vector2.all(32), loop: false),
     );
   }
-} //unai_chupala
+}
